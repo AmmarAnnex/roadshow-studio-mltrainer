@@ -1234,7 +1234,7 @@
             document.getElementById('controlsSection').style.display = 'block';
         }
 
-        // Smart download - works on Vercel, falls back to new tab on RunPod
+        // MOBILE-FRIENDLY Download - Multiple Methods
         function handleDownload() {
             if (!window.enhancedAudioBlob) {
                 console.error('No enhanced audio blob');
@@ -1242,11 +1242,13 @@
                 return;
             }
 
-            // Check if we're in RunPod iframe (downloads blocked)
-            const inRunPodIframe = window.location.hostname.includes('proxy.runpod.net');
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
             
-            if (!inRunPodIframe) {
-                // Normal download (works on Vercel/direct hosting)
+            console.log(`Download attempt - Mobile: ${isMobile}, iOS: ${isIOS}`);
+
+            // Method 1: Standard download (works on desktop and Android)
+            if (!isIOS) {
                 try {
                     const url = URL.createObjectURL(window.enhancedAudioBlob);
                     const a = document.createElement('a');
@@ -1261,27 +1263,82 @@
                         URL.revokeObjectURL(url);
                     }, 100);
                     
-                    console.log('Download triggered successfully');
+                    console.log('Standard download triggered');
                     return;
                 } catch (e) {
-                    console.error('Download failed:', e);
+                    console.error('Standard download failed:', e);
                 }
             }
             
-            // Fallback for RunPod: Open in new tab
-            const url = URL.createObjectURL(window.enhancedAudioBlob);
-            const newWindow = window.open(url, '_blank');
-            
-            if (newWindow && inRunPodIframe) {
-                setTimeout(() => {
-                    alert('RunPod blocks downloads. Right-click the audio and select "Save audio as..." to download.');
-                }, 500);
-            } else if (!newWindow) {
-                // Try data URL if popup blocked
-                if (window.enhancedAudioBase64) {
-                    const dataUrl = 'data:audio/wav;base64,' + window.enhancedAudioBase64;
-                    window.open(dataUrl, '_blank');
+            // Method 2: For iOS - Create audio element with download link
+            if (isIOS) {
+                try {
+                    const url = URL.createObjectURL(window.enhancedAudioBlob);
+                    
+                    // Create a modal with audio and instructions
+                    const modal = document.createElement('div');
+                    modal.style.cssText = `
+                        position: fixed;
+                        top: 0;
+                        left: 0;
+                        right: 0;
+                        bottom: 0;
+                        background: rgba(0,0,0,0.9);
+                        z-index: 10000;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        padding: 20px;
+                    `;
+                    
+                    modal.innerHTML = `
+                        <div style="background: white; padding: 20px; border-radius: 10px; max-width: 300px; text-align: center;">
+                            <h3 style="margin: 0 0 10px 0; font-family: 'ABC Diatype Rounded', sans-serif;">Download Your Audio</h3>
+                            <p style="font-size: 14px; margin-bottom: 15px; color: #666;">iOS requires manual save:</p>
+                            <audio controls style="width: 100%; margin-bottom: 15px;" src="${url}"></audio>
+                            <ol style="text-align: left; font-size: 12px; margin-bottom: 15px;">
+                                <li>Long press the audio player above</li>
+                                <li>Select "Download" or "Save to Files"</li>
+                            </ol>
+                            <button onclick="this.parentElement.parentElement.remove()" style="
+                                background: var(--black-primary);
+                                color: white;
+                                border: none;
+                                padding: 10px 20px;
+                                border-radius: 20px;
+                                font-size: 14px;
+                            ">Close</button>
+                        </div>
+                    `;
+                    
+                    document.body.appendChild(modal);
+                    console.log('iOS download modal shown');
+                    return;
+                } catch (e) {
+                    console.error('iOS method failed:', e);
                 }
+            }
+            
+            // Method 3: Fallback - Open in new tab
+            try {
+                const url = URL.createObjectURL(window.enhancedAudioBlob);
+                const newWindow = window.open(url, '_blank');
+                
+                if (newWindow) {
+                    setTimeout(() => {
+                        alert('Audio opened in new tab. Right-click (or long-press on mobile) and select "Save" to download.');
+                    }, 500);
+                } else {
+                    // Last resort: Data URL
+                    if (window.enhancedAudioBase64) {
+                        const dataUrl = 'data:audio/wav;base64,' + window.enhancedAudioBase64;
+                        window.open(dataUrl, '_blank');
+                    }
+                }
+            } catch (e) {
+                console.error('All download methods failed:', e);
+                alert('Download failed. Try using a different browser or device.');
             }
         }
 
@@ -1365,12 +1422,27 @@
                     // CRITICAL: Store blob globally for download
                     window.enhancedAudioBlob = audioBlob;
                     
-                    // Create blob URL for audio playback
+                    // Create blob URLs for playback
                     enhancedBlobUrl = URL.createObjectURL(audioBlob);
+                    const originalBlobUrl = URL.createObjectURL(audioFile);
                     
-                    // Set up audio players
-                    originalAudio = new Audio(URL.createObjectURL(audioFile));
-                    enhancedAudio = new Audio(enhancedBlobUrl);
+                    // FIXED: Create audio elements properly
+                    originalAudio = new Audio();
+                    originalAudio.src = originalBlobUrl;
+                    originalAudio.preload = 'auto';
+                    
+                    enhancedAudio = new Audio();
+                    enhancedAudio.src = enhancedBlobUrl;
+                    enhancedAudio.preload = 'auto';
+                    
+                    // Load both audio files
+                    await originalAudio.load();
+                    await enhancedAudio.load();
+                    
+                    // Set current audio to original
+                    currentAudio = originalAudio;
+                    
+                    console.log('Audio players loaded successfully');
                     
                     // Update model status back to connected
                     modelStatus.classList.remove('processing');
@@ -1427,44 +1499,109 @@
             }
         });
 
-        // Audio A/B Testing
+        // Audio A/B Testing - FIXED
         let currentAudio = null;
         let isPlaying = false;
 
+        // Original button handler
         document.getElementById('originalBtn').addEventListener('click', () => {
+            console.log('Switching to original audio');
             document.getElementById('originalBtn').classList.add('active');
             document.getElementById('enhancedBtn').classList.remove('active');
             
-            if (currentAudio) currentAudio.pause();
+            // Stop current audio
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio.currentTime = 0;
+            }
+            
+            // Switch to original
             currentAudio = originalAudio;
-            if (isPlaying) currentAudio.play();
+            
+            // Resume playing if was playing
+            if (isPlaying && currentAudio) {
+                currentAudio.play().catch(e => {
+                    console.error('Play failed:', e);
+                    alert('Audio playback failed. Try clicking play again.');
+                });
+            }
         });
 
+        // Enhanced button handler
         document.getElementById('enhancedBtn').addEventListener('click', () => {
+            console.log('Switching to enhanced audio');
             document.getElementById('enhancedBtn').classList.add('active');
             document.getElementById('originalBtn').classList.remove('active');
             
-            if (currentAudio) currentAudio.pause();
+            // Stop current audio
+            if (currentAudio) {
+                currentAudio.pause();
+                currentAudio.currentTime = 0;
+            }
+            
+            // Switch to enhanced
             currentAudio = enhancedAudio;
-            if (isPlaying) currentAudio.play();
+            
+            // Resume playing if was playing
+            if (isPlaying && currentAudio) {
+                currentAudio.play().catch(e => {
+                    console.error('Play failed:', e);
+                    alert('Audio playback failed. Try clicking play again.');
+                });
+            }
         });
 
-        // Play/pause button
-        document.getElementById('playButton').addEventListener('click', () => {
+        // Play/pause button - FIXED
+        document.getElementById('playButton').addEventListener('click', async () => {
             const playIcon = document.getElementById('playIcon');
             
-            if (!currentAudio) currentAudio = originalAudio;
+            // Make sure we have audio
+            if (!currentAudio) {
+                currentAudio = originalAudio;
+            }
+            
+            if (!currentAudio) {
+                console.error('No audio available');
+                alert('No audio loaded. Please try processing again.');
+                return;
+            }
 
             if (isPlaying) {
+                // Pause
                 currentAudio.pause();
                 playIcon.className = 'play-icon';
                 isPlaying = false;
+                console.log('Audio paused');
             } else {
-                currentAudio.play();
-                playIcon.className = 'pause-icon';
-                isPlaying = true;
+                // Play
+                try {
+                    await currentAudio.play();
+                    playIcon.className = 'pause-icon';
+                    isPlaying = true;
+                    console.log('Audio playing');
+                } catch (error) {
+                    console.error('Play failed:', error);
+                    alert('Audio playback failed. This might be a browser security restriction. Try clicking play again.');
+                    isPlaying = false;
+                    playIcon.className = 'play-icon';
+                }
             }
         });
+        
+        // Auto-reset play button when audio ends
+        if (originalAudio) {
+            originalAudio.addEventListener('ended', () => {
+                document.getElementById('playIcon').className = 'play-icon';
+                isPlaying = false;
+            });
+        }
+        
+        if (enhancedAudio) {
+            enhancedAudio.addEventListener('ended', () => {
+                document.getElementById('playIcon').className = 'play-icon';
+                isPlaying = false;
+            });
+        }
 
         // Reset Interface
         function resetInterface() {
