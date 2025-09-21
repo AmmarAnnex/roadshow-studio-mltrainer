@@ -896,7 +896,7 @@
             </div>
 
             <div class="download-buttons">
-                <button class="download-btn" id="downloadBtn" onclick="handleDownload()">download enhanced</button>
+                <a class="download-btn" id="downloadBtn" href="#">download enhanced</a>
                 <button class="download-btn reset-btn" onclick="resetInterface()">process another</button>
             </div>
         </div>
@@ -938,7 +938,6 @@
         let isRecording = false;
         let originalAudio = null;
         let enhancedAudio = null;
-        let enhancedBlobUrl = null; // Store blob URL for download
 
         // DOM Elements
         const recordingInterface = document.getElementById('recordingInterface');
@@ -1407,33 +1406,28 @@
                     clearInterval(progressInterval);
                     document.getElementById('progressBar').style.width = '100%';
                     
-                    // CRITICAL: Store base64 AND blob for download fallbacks
-                    window.enhancedAudioBase64 = result.audio_base64;
+                    // MOBILE FIX: Use server URLs directly, not blobs!
+                    const downloadUrl = `${API_URL}${result.download_url}`;
+                    const previewUrl = `${API_URL}${result.preview_url}`;
                     
-                    // Decode base64 audio
-                    const audioData = atob(result.audio_base64);
-                    const arrayBuffer = new ArrayBuffer(audioData.length);
-                    const view = new Uint8Array(arrayBuffer);
-                    for (let i = 0; i < audioData.length; i++) {
-                        view[i] = audioData.charCodeAt(i);
-                    }
-                    const audioBlob = new Blob([arrayBuffer], { type: 'audio/wav' });
+                    console.log('Server URLs:', { downloadUrl, previewUrl });
                     
-                    // CRITICAL: Store blob globally for download
-                    window.enhancedAudioBlob = audioBlob;
-                    
-                    // Create blob URLs for playback
-                    enhancedBlobUrl = URL.createObjectURL(audioBlob);
+                    // Create audio for original (still blob since it's local)
                     const originalBlobUrl = URL.createObjectURL(audioFile);
-                    
-                    // FIXED: Create audio elements properly
                     originalAudio = new Audio();
                     originalAudio.src = originalBlobUrl;
                     originalAudio.preload = 'auto';
                     
+                    // Enhanced audio uses SERVER URL (works on mobile!)
                     enhancedAudio = new Audio();
-                    enhancedAudio.src = enhancedBlobUrl;
+                    enhancedAudio.src = previewUrl;
                     enhancedAudio.preload = 'auto';
+                    
+                    // Set up download link with SERVER URL
+                    const downloadBtn = document.getElementById('downloadBtn');
+                    downloadBtn.href = downloadUrl;
+                    downloadBtn.download = result.filename || 'roadshow_enhanced.wav';
+                    downloadBtn.onclick = null; // Remove any onclick handler
                     
                     // Load both audio files
                     await originalAudio.load();
@@ -1442,7 +1436,7 @@
                     // Set current audio to original
                     currentAudio = originalAudio;
                     
-                    console.log('Audio players loaded successfully');
+                    console.log('Audio players loaded with server URLs - mobile compatible!');
                     
                     // Update model status back to connected
                     modelStatus.classList.remove('processing');
