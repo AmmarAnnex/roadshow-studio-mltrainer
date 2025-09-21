@@ -1285,8 +1285,10 @@
             }
         }
 
-        // Process Button Handler - UPDATED FOR v11a3b RUNPOD API
-        document.getElementById('processBtn').addEventListener('click', async () => {
+        // Process Button Handler - FIXED FOR MOBILE
+        function processAudio() {
+            console.log('Process button clicked/touched');
+            
             if (!window.selectedFile && !window.recordedBlob) {
                 alert('Please record or upload audio first');
                 return;
@@ -1312,85 +1314,96 @@
                 document.getElementById('progressBar').style.width = `${progress}%`;
             }, 200);
 
-            try {
-                const audioFile = window.recordedBlob || window.selectedFile;
-                
-                // Create FormData for direct upload to RunPod server
-                const formData = new FormData();
-                formData.append('file', audioFile, audioFile.name || 'audio.m4a');
-                
-                console.log(`Sending request to: ${API_URL}/process?clarity=${clarity}&warmth=${warmth}`);
-                
-                // Call v11a3b inference server directly
-                const response = await fetch(`${API_URL}/process?clarity=${clarity}&warmth=${warmth}`, {
-                    method: 'POST',
-                    body: formData
-                });
+            // Wrap in async function for error handling
+            (async () => {
+                try {
+                    const audioFile = window.recordedBlob || window.selectedFile;
+                    
+                    // Create FormData for direct upload to RunPod server
+                    const formData = new FormData();
+                    formData.append('file', audioFile, audioFile.name || 'audio.m4a');
+                    
+                    console.log(`Sending request to: ${API_URL}/process?clarity=${clarity}&warmth=${warmth}`);
+                    
+                    // Call v11a3b inference server directly
+                    const response = await fetch(`${API_URL}/process?clarity=${clarity}&warmth=${warmth}`, {
+                        method: 'POST',
+                        body: formData
+                    });
 
-                if (!response.ok) {
-                    const errorText = await response.text();
-                    throw new Error(`API request failed: ${response.status} - ${errorText}`);
-                }
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`API request failed: ${response.status} - ${errorText}`);
+                    }
 
-                const result = await response.json();
-                console.log('Processing result:', result);
-                
-                // Verify we used the right model
-                if (result.model !== "v11a3b_epoch_319") {
-                    console.warn('WARNING: Response from unexpected model:', result.model);
+                    const result = await response.json();
+                    console.log('Processing result:', result);
+                    
+                    // Verify we used the right model
+                    if (result.model !== "v11a3b_epoch_319") {
+                        console.warn('WARNING: Response from unexpected model:', result.model);
+                        modelStatus.classList.add('error');
+                        modelStatusText.textContent = 'wrong model used!';
+                    }
+                    
+                    // Complete progress
+                    clearInterval(progressInterval);
+                    document.getElementById('progressBar').style.width = '100%';
+                    
+                    // CRITICAL: Store base64 AND blob for download fallbacks
+                    window.enhancedAudioBase64 = result.audio_base64;
+                    
+                    // Decode base64 audio
+                    const audioData = atob(result.audio_base64);
+                    const arrayBuffer = new ArrayBuffer(audioData.length);
+                    const view = new Uint8Array(arrayBuffer);
+                    for (let i = 0; i < audioData.length; i++) {
+                        view[i] = audioData.charCodeAt(i);
+                    }
+                    const audioBlob = new Blob([arrayBuffer], { type: 'audio/wav' });
+                    
+                    // CRITICAL: Store blob globally for download
+                    window.enhancedAudioBlob = audioBlob;
+                    
+                    // Create blob URL for audio playback
+                    enhancedBlobUrl = URL.createObjectURL(audioBlob);
+                    
+                    // Set up audio players
+                    originalAudio = new Audio(URL.createObjectURL(audioFile));
+                    enhancedAudio = new Audio(enhancedBlobUrl);
+                    
+                    // Update model status back to connected
+                    modelStatus.classList.remove('processing');
+                    modelStatus.classList.add('connected');
+                    modelStatusText.textContent = 'v11a3b epoch 319 loaded';
+                    
+                    // Show results
+                    setTimeout(() => {
+                        processingOverlay.style.display = 'none';
+                        resultsContainer.style.display = 'block';
+                    }, 500);
+
+                } catch (error) {
+                    console.error('Processing error:', error);
+                    clearInterval(progressInterval);
+                    
+                    // Update model status to show error
+                    modelStatus.classList.remove('processing');
                     modelStatus.classList.add('error');
-                    modelStatusText.textContent = 'wrong model used!';
+                    modelStatusText.textContent = 'processing failed';
+                    
+                    alert(`Processing failed: ${error.message}\n\nMake sure your RunPod server is running and the URL is correct.`);
+                    resetInterface();
                 }
-                
-                // Complete progress
-                clearInterval(progressInterval);
-                document.getElementById('progressBar').style.width = '100%';
-                
-                // CRITICAL: Store base64 AND blob for download fallbacks
-                window.enhancedAudioBase64 = result.audio_base64;
-                
-                // Decode base64 audio
-                const audioData = atob(result.audio_base64);
-                const arrayBuffer = new ArrayBuffer(audioData.length);
-                const view = new Uint8Array(arrayBuffer);
-                for (let i = 0; i < audioData.length; i++) {
-                    view[i] = audioData.charCodeAt(i);
-                }
-                const audioBlob = new Blob([arrayBuffer], { type: 'audio/wav' });
-                
-                // CRITICAL: Store blob globally for download
-                window.enhancedAudioBlob = audioBlob;
-                
-                // Create blob URL for audio playback
-                enhancedBlobUrl = URL.createObjectURL(audioBlob);
-                
-                // Set up audio players
-                originalAudio = new Audio(URL.createObjectURL(audioFile));
-                enhancedAudio = new Audio(enhancedBlobUrl);
-                
-                // Update model status back to connected
-                modelStatus.classList.remove('processing');
-                modelStatus.classList.add('connected');
-                modelStatusText.textContent = 'v11a3b epoch 319 loaded';
-                
-                // Show results
-                setTimeout(() => {
-                    processingOverlay.style.display = 'none';
-                    resultsContainer.style.display = 'block';
-                }, 500);
+            })();
+        }
 
-            } catch (error) {
-                console.error('Processing error:', error);
-                clearInterval(progressInterval);
-                
-                // Update model status to show error
-                modelStatus.classList.remove('processing');
-                modelStatus.classList.add('error');
-                modelStatusText.textContent = 'processing failed';
-                
-                alert(`Processing failed: ${error.message}\n\nMake sure your RunPod server is running and the URL is correct.`);
-                resetInterface();
-            }
+        // Add both click AND touch listeners for mobile
+        const processBtn = document.getElementById('processBtn');
+        processBtn.addEventListener('click', processAudio);
+        processBtn.addEventListener('touchend', (e) => {
+            e.preventDefault(); // Prevent double firing
+            processAudio();
         });
 
         // Drag and Drop
