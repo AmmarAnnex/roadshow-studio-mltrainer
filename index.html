@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Roadshow Studio v11a3b - iPhone → U87 (Epoch 319)</title>
+    <title>Roadshow Studio v11a3b - iPhone → U87 (Epoch 346)</title>
     <style>
         @font-face {
             font-family: 'ABC Camera Plain';
@@ -802,7 +802,7 @@
             <span class="logo-text">roadshow</span>
             <span class="logo-studio">studio</span>
         </div>
-        <div class="version">v11a3b epoch 319 | val loss: 9.02</div>
+        <div class="version">v11a3b epoch 346 | val loss: 9.02</div>
     </div>
 
     <!-- Model Status Indicator -->
@@ -959,14 +959,14 @@
                     const health = await response.json();
                     if (health.model_loaded) {
                         // Verify it's YOUR model, not vanilla BigVGAN
-                        if (health.checkpoint === "epoch_319" && health.val_loss === "9.02") {
+                        if (health.checkpoint === "epoch_346" && health.val_loss === "9.02") {
                             modelStatus.classList.add('connected');
-                            modelStatusText.textContent = 'v11a3b epoch 319 loaded';
+                            modelStatusText.textContent = 'v11a3b epoch 346 loaded';
                         } else {
                             // Wrong model loaded!
                             modelStatus.classList.add('error');
                             modelStatusText.textContent = 'WARNING: vanilla bigvgan detected';
-                            console.error('Wrong model loaded! Expected epoch 319, got:', health);
+                            console.error('Wrong model loaded! Expected epoch 346, got:', health);
                         }
                     } else {
                         modelStatus.classList.add('error');
@@ -1396,7 +1396,7 @@
                     console.log('Processing result:', result);
                     
                     // Verify we used the right model
-                    if (result.model !== "v11a3b_epoch_319") {
+                    if (result.model !== "v11a3b_epoch_346") {
                         console.warn('WARNING: Response from unexpected model:', result.model);
                         modelStatus.classList.add('error');
                         modelStatusText.textContent = 'wrong model used!';
@@ -1441,7 +1441,7 @@
                     // Update model status back to connected
                     modelStatus.classList.remove('processing');
                     modelStatus.classList.add('connected');
-                    modelStatusText.textContent = 'v11a3b epoch 319 loaded';
+                    modelStatusText.textContent = 'v11a3b epoch 346 loaded';
                     
                     // Show results
                     setTimeout(() => {
@@ -1652,8 +1652,8 @@
         }
 
         // Log API URL and model info for debugging
-        console.log(`Roadshow v11a3b - Epoch 319 - API URL: ${API_URL}`);
-        console.log('Looking for checkpoint at: /workspace/training/bigvgan_u87_training/checkpoints/bigvgan_u87_v11a3b_phase_c50/bigvgan_u87_v11a_original_250_clean_epoch_319.pth');
+        console.log(`Roadshow v11a3b - Epoch 346 - API URL: ${API_URL}`);
+        console.log('Looking for checkpoint at: /workspace/training/bigvgan_u87_training/checkpoints/bigvgan_u87_v11a3b_phase_c50/bigvgan_u87_v11a_original_250_clean_epoch_346.pth');
     </script>
 </body>
 </html>
